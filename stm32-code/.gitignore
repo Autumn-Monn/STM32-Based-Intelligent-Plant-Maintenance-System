@@ -1,3 +1,59 @@
-build
+﻿# 编译产物
+*.o
+*.obj
+*.elf
+*.axf
+*.bin
+*.hex
+*.d
+*.crf
+
+# CMake / 本地构建目录
+build/
 mx.scratch
-!.settings
+
+# Keil MDK IDE
+OBJ/
+Listings/
+Objects/
+*.uvoptx
+*.uvprojx
+*.uvguix.*
+*.bak
+*.dep
+*.lnp
+*.sct
+*.build_log.htm
+*.htm
+
+# 文档和资源文件
+*.docx
+*.xlsx
+*.xls
+*.pdf
+ZIP/
+docs/*.docx
+
+# 系统文件
+.claude/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 其他
+skills-lock.json
+*.log
+*~
+
+# Requirements artifacts / screenshots
+requirements/image/
+image/
+
+# Common archives
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+*.bz2
+*.xz
