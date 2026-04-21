@@ -2,8 +2,8 @@
 
 #include "led.h"
 
-#define KEY_SCAN_PERIOD_MS    10U
-#define KEY_DEBOUNCE_TIME_MS  30U
+#define KEY_SCAN_PERIOD_MS    10U                      // 扫描周期       
+#define KEY_DEBOUNCE_TIME_MS  30U                      // 消抖时间
 
 typedef struct
 {
@@ -29,6 +29,12 @@ static const key_hw_t g_key_map[KEY_ID_COUNT] = {
 static key_state_t g_key_state[KEY_ID_COUNT];
 static uint32_t g_last_scan_tick;
 
+/**
+ * @brief 读取按键原始状态
+ * 
+ * @param key 按键ID，类型为key_id_t
+ * @return uint8_t 返回按键原始状态，按下为1，未按下为0
+ */
 static uint8_t key_read_raw_pressed(key_id_t key)
 {
   if (key >= KEY_ID_COUNT)
@@ -39,6 +45,11 @@ static uint8_t key_read_raw_pressed(key_id_t key)
   return (HAL_GPIO_ReadPin(g_key_map[key].port, g_key_map[key].pin) == GPIO_PIN_RESET) ? 1U : 0U;
 }
 
+/**
+ * @brief 初始化按键模块
+ * 
+ * @return 无返回值
+ */
 void key_init(void)
 {
   key_id_t key;
@@ -56,6 +67,11 @@ void key_init(void)
   }
 }
 
+/**
+ * @brief 扫描所有按键状态并进行消抖处理
+ * 
+ * @return 无返回值
+ */
 void key_scan(void)
 {
   key_id_t key;
@@ -93,6 +109,12 @@ void key_scan(void)
   }
 }
 
+/**
+ * @brief 检查指定按键是否处于按下状态
+ * 
+ * @param key 按键ID，类型为key_id_t
+ * @return uint8_t 返回按键稳定状态，按下为1，未按下为0
+ */
 uint8_t key_is_pressed(key_id_t key)
 {
   if (key >= KEY_ID_COUNT)
@@ -103,6 +125,11 @@ uint8_t key_is_pressed(key_id_t key)
   return g_key_state[key].stable_pressed;
 }
 
+/**
+ * @brief 获取按键事件
+ * 
+ * @return key_event_t 返回检测到的按键事件，若无事件则返回KEY_EVENT_NONE
+ */
 key_event_t key_get_event(void)
 {
   key_id_t key;
@@ -119,6 +146,11 @@ key_event_t key_get_event(void)
   return KEY_EVENT_NONE;
 }
 
+/**
+ * @brief 按键阶段二演示函数，处理按键事件并控制LED
+ * 
+ * @return 无返回值
+ */
 void key_stage2_demo(void)
 {
   key_event_t event;
