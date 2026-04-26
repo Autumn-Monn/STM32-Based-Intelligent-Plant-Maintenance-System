@@ -22,7 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "led.h"
+#include "beep.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,135 +43,16 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-static volatile uint8_t g_key1_exti_pressed_flag = 0U;
-static uint32_t g_key1_last_irq_tick = 0U;
-static uint8_t g_key1_override_active = 0U;
-static uint8_t g_key1_release_pending = 0U;
-static uint32_t g_key1_release_tick = 0U;
-static led_id_t g_rb_active_led = LED_RED;
-static led_id_t g_rb_saved_led = LED_RED;
-static uint32_t g_rb_last_toggle_tick = 0U;
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-static void stage3_set_red_blue_state(led_id_t active_led);
-static void stage3_update_red_blue_blink(void);
-static void stage3_handle_key1_press(void);
-static void stage3_handle_key1_release(void);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-static void stage3_set_red_blue_state(led_id_t active_led)
-{
-  if (active_led == LED_RED)
-  {
-    led_on(LED_RED);
-    led_off(LED_BLUE);
-  }
-  else
-  {
-    led_on(LED_BLUE);
-    led_off(LED_RED);
-  }
-}
-
-static void stage3_update_red_blue_blink(void)
-{
-  uint32_t now;
-
-  if (g_key1_override_active != 0U)
-  {
-    return;
-  }
-
-  now = HAL_GetTick();
-  if ((now - g_rb_last_toggle_tick) < 500U)
-  {
-    return;
-  }
-
-  g_rb_last_toggle_tick = now;
-  if (g_rb_active_led == LED_RED)
-  {
-    g_rb_active_led = LED_BLUE;
-  }
-  else
-  {
-    g_rb_active_led = LED_RED;
-  }
-
-  stage3_set_red_blue_state(g_rb_active_led);
-}
-
-static void stage3_handle_key1_press(void)
-{
-  if (g_key1_exti_pressed_flag == 0U)
-  {
-    return;
-  }
-
-  g_key1_exti_pressed_flag = 0U;
-
-  if (g_key1_override_active != 0U)
-  {
-    return;
-  }
-
-  if (HAL_GPIO_ReadPin(KEY_1_GPIO_Port, KEY_1_Pin) != GPIO_PIN_RESET)
-  {
-    return;
-  }
-
-  g_rb_saved_led = g_rb_active_led;
-  g_key1_override_active = 1U;
-  g_key1_release_pending = 0U;
-
-  led_off(LED_RED);
-  led_off(LED_BLUE);
-  led_on(LED_GREEN);
-}
-
-static void stage3_handle_key1_release(void)
-{
-  uint32_t now;
-
-  if (g_key1_override_active == 0U)
-  {
-    return;
-  }
-
-  if (HAL_GPIO_ReadPin(KEY_1_GPIO_Port, KEY_1_Pin) == GPIO_PIN_RESET)
-  {
-    g_key1_release_pending = 0U;
-    return;
-  }
-
-  now = HAL_GetTick();
-  if (g_key1_release_pending == 0U)
-  {
-    g_key1_release_pending = 1U;
-    g_key1_release_tick = now;
-    return;
-  }
-
-  if ((now - g_key1_release_tick) < 30U)
-  {
-    return;
-  }
-
-  g_key1_release_pending = 0U;
-  g_key1_override_active = 0U;
-  led_off(LED_GREEN);
-  g_rb_active_led = g_rb_saved_led;
-  stage3_set_red_blue_state(g_rb_active_led);
-  g_rb_last_toggle_tick = now;
-}
-
 /* USER CODE END 0 */
 
 /**
@@ -204,9 +85,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
-  led_init();
-  stage3_set_red_blue_state(g_rb_active_led);
-  g_rb_last_toggle_tick = HAL_GetTick();
+  beep_init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -216,9 +95,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    stage3_handle_key1_press();
-    stage3_handle_key1_release();
-    stage3_update_red_blue_blink();
+    beep_stage4a_demo();
   }
   /* USER CODE END 3 */
 }
@@ -265,21 +142,7 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-  uint32_t now;
-
-  if (GPIO_Pin != KEY_1_Pin)
-  {
-    return;
-  }
-
-  now = HAL_GetTick();
-  if ((now - g_key1_last_irq_tick) < 30U)
-  {
-    return;
-  }
-
-  g_key1_last_irq_tick = now;
-  g_key1_exti_pressed_flag = 1U;
+  (void)GPIO_Pin;
 }
 
 /* USER CODE END 4 */

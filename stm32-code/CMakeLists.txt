@@ -47,6 +47,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     User/Src/led.c
     User/Src/key.c
+    User/Src/exti_demo.c
+    User/Src/beep.c
 )
 
 # Add include paths
