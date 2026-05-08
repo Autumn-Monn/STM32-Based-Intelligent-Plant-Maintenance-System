@@ -59,12 +59,22 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define LED0_Pin GPIO_PIN_13
 #define LED0_GPIO_Port GPIOC
+#define RELAY_PUMP_Pin GPIO_PIN_1
+#define RELAY_PUMP_GPIO_Port GPIOA
+#define RELAY_FAN_Pin GPIO_PIN_2
+#define RELAY_FAN_GPIO_Port GPIOA
 #define BEEP_Pin GPIO_PIN_3
 #define BEEP_GPIO_Port GPIOA
+#define DS18B20_DATA_Pin GPIO_PIN_4
+#define DS18B20_DATA_GPIO_Port GPIOA
+#define LED_GREEN_Pin GPIO_PIN_7
+#define LED_GREEN_GPIO_Port GPIOA
 #define LED_RED_Pin GPIO_PIN_0
 #define LED_RED_GPIO_Port GPIOB
 #define LED_BLUE_Pin GPIO_PIN_1
 #define LED_BLUE_GPIO_Port GPIOB
+#define ESP8266_RST_Pin GPIO_PIN_10
+#define ESP8266_RST_GPIO_Port GPIOB
 #define KEY_1_Pin GPIO_PIN_12
 #define KEY_1_GPIO_Port GPIOB
 #define KEY_1_EXTI_IRQn EXTI15_10_IRQn
@@ -74,8 +84,6 @@ void Error_Handler(void);
 #define KEY_3_GPIO_Port GPIOB
 #define KEY_4_Pin GPIO_PIN_15
 #define KEY_4_GPIO_Port GPIOB
-#define LED_GREEN_Pin GPIO_PIN_8
-#define LED_GREEN_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 

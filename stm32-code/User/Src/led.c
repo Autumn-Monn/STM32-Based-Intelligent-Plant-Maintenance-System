@@ -1,3 +1,12 @@
+
+/**
+ * @file led.c
+ * @brief LED 灯控制模块实现
+ * @author 
+ * @date 2026-05-07
+ * @version 1.0
+ * @copyright Copyright (c) 2026
+ */
 #include "led.h"
 
 typedef struct

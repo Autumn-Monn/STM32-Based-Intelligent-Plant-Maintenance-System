@@ -49,6 +49,9 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     User/Src/key.c
     User/Src/exti_demo.c
     User/Src/beep.c
+    User/Src/relay.c
+    User/Src/debug_uart.c
+    User/Src/soil.c
 )
 
 # Add include paths

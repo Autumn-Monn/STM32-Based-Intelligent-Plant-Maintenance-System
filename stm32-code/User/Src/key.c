@@ -1,3 +1,12 @@
+
+/**
+ * @file key.c
+ * @brief 按键扫描与消抖模块实现
+ * @author 
+ * @date 2026-05-07
+ * @version 1.0
+ * @copyright Copyright (c) 2026
+ */
 #include "key.h"
 
 #include "led.h"
@@ -162,7 +171,7 @@ void key_stage2_demo(void)
     switch (event)
     {
       case KEY_EVENT_1_PRESSED:
-        led_toggle(LED_GREEN);
+        led_toggle(LED_BLUE);
         break;
 
       case KEY_EVENT_2_PRESSED:
@@ -170,7 +179,7 @@ void key_stage2_demo(void)
         break;
 
       case KEY_EVENT_3_PRESSED:
-        led_toggle(LED_BLUE);
+        led_toggle(LED_GREEN);
         break;
 
       case KEY_EVENT_4_PRESSED:

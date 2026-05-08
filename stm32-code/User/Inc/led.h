@@ -10,9 +10,9 @@ extern "C" {
 typedef enum
 {
   LED_BOARD = 0,
-  LED_GREEN,
-  LED_RED,
   LED_BLUE,
+  LED_RED,
+  LED_GREEN,
   LED_COUNT
 } led_id_t;
 

@@ -1,3 +1,12 @@
+
+/**
+ * @file exti_demo.c
+ * @brief 外部中断（EXTI）演示模块实现
+ * @author 
+ * @date 2026-05-07
+ * @version 1.0
+ * @copyright Copyright (c) 2026
+ */
 #include "exti_demo.h"
 
 #include "led.h"
@@ -14,6 +23,12 @@ static led_id_t g_rb_active_led = LED_RED;
 static led_id_t g_rb_saved_led = LED_RED;
 static uint32_t g_rb_last_toggle_tick = 0U;
 
+/**
+ * @brief 设置红色和蓝色LED的状态
+ * 
+ * @param active_led 当前活动的LED，类型为led_id_t
+ * @return 无返回值
+ */
 static void exti_demo_set_red_blue_state(led_id_t active_led)
 {
   if (active_led == LED_RED)
@@ -28,6 +43,11 @@ static void exti_demo_set_red_blue_state(led_id_t active_led)
   }
 }
 
+/**
+ * @brief 更新红色和蓝色LED的闪烁状态
+ * 
+ * @return 无返回值
+ */
 static void exti_demo_update_red_blue_blink(void)
 {
   uint32_t now;
@@ -56,6 +76,11 @@ static void exti_demo_update_red_blue_blink(void)
   exti_demo_set_red_blue_state(g_rb_active_led);
 }
 
+/**
+ * @brief 处理KEY1按键按下事件
+ * 
+ * @return 无返回值
+ */
 static void exti_demo_handle_key1_press(void)
 {
   if (g_key1_exti_pressed_flag == 0U)
@@ -84,6 +109,11 @@ static void exti_demo_handle_key1_press(void)
   led_on(LED_GREEN);
 }
 
+/**
+ * @brief 处理KEY1按键释放事件
+ * 
+ * @return 无返回值
+ */
 static void exti_demo_handle_key1_release(void)
 {
   uint32_t now;
@@ -120,6 +150,11 @@ static void exti_demo_handle_key1_release(void)
   g_rb_last_toggle_tick = now;
 }
 
+/**
+ * @brief 初始化EXTI演示模块
+ * 
+ * @return 无返回值
+ */
 void exti_demo_init(void)
 {
   g_key1_exti_pressed_flag = 0U;
@@ -135,6 +170,11 @@ void exti_demo_init(void)
   g_rb_last_toggle_tick = HAL_GetTick();
 }
 
+/**
+ * @brief EXTI演示任务处理函数，处理按键事件和LED状态更新
+ * 
+ * @return 无返回值
+ */
 void exti_demo_task(void)
 {
   exti_demo_handle_key1_press();
@@ -142,6 +182,12 @@ void exti_demo_task(void)
   exti_demo_update_red_blue_blink();
 }
 
+/**
+ * @brief GPIO外部中断回调函数
+ * 
+ * @param gpio_pin 触发中断的GPIO引脚
+ * @return 无返回值
+ */
 void exti_demo_gpio_exti_callback(uint16_t gpio_pin)
 {
   uint32_t now;

@@ -18,11 +18,18 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "adc.h"
+#include "i2c.h"
+#include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "beep.h"
+#include "led.h"
+#include "key.h"
+#include "relay.h"
+#include "debug_uart.h"
+#include "soil.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -84,8 +91,15 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_ADC1_Init();
+  MX_USART1_UART_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  beep_init();
+  led_init();
+  key_init();
+  relay_init();
+  debug_uart_init();
+  soil_init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -95,7 +109,49 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    beep_stage4a_demo();
+    key_scan();
+
+    {
+      key_event_t evt = key_get_event();
+      switch (evt)
+      {
+        case KEY_EVENT_1_PRESSED:
+          led_toggle(LED_BLUE);
+          debug_uart_send_line("[KEY] K1 -> LED_BLUE toggle");
+          break;
+        case KEY_EVENT_2_PRESSED:
+          led_toggle(LED_RED);
+          debug_uart_send_line("[KEY] K2 -> LED_RED toggle");
+          break;
+        case KEY_EVENT_3_PRESSED:
+          led_toggle(LED_GREEN);
+          debug_uart_send_line("[KEY] K3 -> LED_GREEN toggle");
+          break;
+        case KEY_EVENT_4_PRESSED:
+          relay_toggle(RELAY_PUMP);
+          debug_uart_send_line("[KEY] K4 -> RELAY_PUMP toggle");
+          break;
+        default:
+          break;
+      }
+    }
+
+    while (debug_uart_has_data())
+    {
+      uint8_t cmd = debug_uart_read_byte();
+      switch (cmd)
+      {
+        case '1': led_toggle(LED_BLUE);    debug_uart_send_line("[CMD] LED_BLUE toggle");  break;
+        case '2': led_toggle(LED_RED);      debug_uart_send_line("[CMD] LED_RED toggle");    break;
+        case '3': led_toggle(LED_GREEN);     debug_uart_send_line("[CMD] LED_GREEN toggle");   break;
+        case 'p': relay_toggle(RELAY_PUMP); debug_uart_send_line("[CMD] RELAY_PUMP toggle"); break;
+        case 'f': relay_toggle(RELAY_FAN);  debug_uart_send_line("[CMD] RELAY_FAN toggle");  break;
+        case 's': soil_stage6_demo();       break;
+        default:  break;
+      }
+    }
+
+    soil_stage6_demo();
   }
   /* USER CODE END 3 */
 }
@@ -108,6 +164,7 @@ void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
@@ -137,12 +194,26 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
+  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   (void)GPIO_Pin;
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  if (huart->Instance == USART1)
+  {
+    debug_uart_rx_callback();
+  }
 }
 
 /* USER CODE END 4 */
