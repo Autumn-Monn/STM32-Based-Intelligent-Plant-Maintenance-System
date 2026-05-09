@@ -58,6 +58,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     User/Src/at24c02.c
     User/Src/at24c02_test.c
     User/Src/data_store.c
+    User/Src/control.c
 )
 
 # Add include paths

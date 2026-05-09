@@ -11,8 +11,9 @@
 
 #include "led.h"
 
-#define KEY_SCAN_PERIOD_MS    10U                      // 扫描周期       
-#define KEY_DEBOUNCE_TIME_MS  30U                      // 消抖时间
+#define KEY_SCAN_PERIOD_MS    10U
+#define KEY_DEBOUNCE_TIME_MS  30U
+#define KEY_LONG_PRESS_MS     2000U
 
 typedef struct
 {
@@ -25,7 +26,10 @@ typedef struct
   uint8_t last_raw_pressed;
   uint8_t stable_pressed;
   uint8_t pressed_event_pending;
+  uint8_t long_event_pending;
+  uint8_t long_fired;
   uint32_t last_change_tick;
+  uint32_t press_start_tick;
 } key_state_t;
 
 static const key_hw_t g_key_map[KEY_ID_COUNT] = {
@@ -72,7 +76,10 @@ void key_init(void)
     g_key_state[key].last_raw_pressed = raw_pressed;
     g_key_state[key].stable_pressed = raw_pressed;
     g_key_state[key].pressed_event_pending = 0U;
+    g_key_state[key].long_event_pending = 0U;
+    g_key_state[key].long_fired = 0U;
     g_key_state[key].last_change_tick = g_last_scan_tick;
+    g_key_state[key].press_start_tick = g_last_scan_tick;
   }
 }
 
@@ -109,11 +116,34 @@ void key_scan(void)
     if ((g_key_state[key].stable_pressed != raw_pressed) &&
         ((now - g_key_state[key].last_change_tick) >= KEY_DEBOUNCE_TIME_MS))
     {
+      uint8_t was_pressed = g_key_state[key].stable_pressed;
       g_key_state[key].stable_pressed = raw_pressed;
+
       if (raw_pressed != 0U)
       {
-        g_key_state[key].pressed_event_pending = 1U;
+        g_key_state[key].press_start_tick = now;
+        g_key_state[key].long_fired = 0U;
       }
+      else if (was_pressed != 0U)
+      {
+        if (key == KEY_ID_1 && g_key_state[key].long_fired != 0U)
+        {
+          g_key_state[key].long_fired = 0U;
+        }
+        else
+        {
+          g_key_state[key].pressed_event_pending = 1U;
+        }
+      }
+    }
+
+    if (key == KEY_ID_1 &&
+        g_key_state[key].stable_pressed != 0U &&
+        g_key_state[key].long_fired == 0U &&
+        (now - g_key_state[key].press_start_tick) >= KEY_LONG_PRESS_MS)
+    {
+      g_key_state[key].long_fired = 1U;
+      g_key_state[key].long_event_pending = 1U;
     }
   }
 }
@@ -141,6 +171,12 @@ uint8_t key_is_pressed(key_id_t key)
  */
 key_event_t key_get_event(void)
 {
+  if (g_key_state[KEY_ID_1].long_event_pending != 0U)
+  {
+    g_key_state[KEY_ID_1].long_event_pending = 0U;
+    return KEY_EVENT_1_LONG;
+  }
+
   key_id_t key;
 
   for (key = KEY_ID_1; key < KEY_ID_COUNT; key++)

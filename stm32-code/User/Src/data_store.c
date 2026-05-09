@@ -7,9 +7,13 @@
 #define STORE_MAGIC         0xA5U
 #define STORE_HEADER_ADDR   0x00U
 #define STORE_DATA_ADDR     0x04U
-#define STORE_MAX_RECORDS   63U
+#define STORE_MAX_RECORDS   59U
 #define STORE_RECORD_SIZE   4U
 #define STORE_INTERVAL_MS   (5U * 60U * 1000U)
+
+#define THRESH_BASE_ADDR    0xF4U
+#define THRESH_MAGIC        0xCFU
+#define THRESH_SIZE         12U
 
 typedef struct
 {
@@ -154,4 +158,49 @@ void data_store_clear(void)
   g_header.record_count = 0U;
   header_write();
   debug_uart_send_line("[STORE] Cleared");
+}
+
+void data_store_load_thresholds(threshold_config_t *cfg)
+{
+  uint8_t buf[THRESH_SIZE];
+  at24c02_read_bytes(THRESH_BASE_ADDR, buf, THRESH_SIZE);
+
+  if (buf[0] != THRESH_MAGIC)
+  {
+    cfg->plant_type = 1U;
+    cfg->soil_low   = 1800U;
+    cfg->soil_high  = 2200U;
+    cfg->temp_high  = 35U;
+    cfg->temp_alarm = 40U;
+    cfg->soil_alarm = 1200U;
+    debug_uart_send_line("[STORE] Thresholds: defaults loaded");
+    return;
+  }
+
+  cfg->plant_type = buf[1];
+  cfg->soil_low   = (uint16_t)buf[2] | ((uint16_t)buf[3] << 8);
+  cfg->soil_high  = (uint16_t)buf[4] | ((uint16_t)buf[5] << 8);
+  cfg->temp_high  = buf[6];
+  cfg->temp_alarm = buf[7];
+  cfg->soil_alarm = (uint16_t)buf[8] | ((uint16_t)buf[9] << 8);
+  debug_uart_send_line("[STORE] Thresholds: restored from EEPROM");
+}
+
+void data_store_save_thresholds(const threshold_config_t *cfg)
+{
+  uint8_t buf[THRESH_SIZE];
+  buf[0]  = THRESH_MAGIC;
+  buf[1]  = cfg->plant_type;
+  buf[2]  = (uint8_t)(cfg->soil_low & 0xFFU);
+  buf[3]  = (uint8_t)((cfg->soil_low >> 8) & 0xFFU);
+  buf[4]  = (uint8_t)(cfg->soil_high & 0xFFU);
+  buf[5]  = (uint8_t)((cfg->soil_high >> 8) & 0xFFU);
+  buf[6]  = cfg->temp_high;
+  buf[7]  = cfg->temp_alarm;
+  buf[8]  = (uint8_t)(cfg->soil_alarm & 0xFFU);
+  buf[9]  = (uint8_t)((cfg->soil_alarm >> 8) & 0xFFU);
+  buf[10] = 0U;
+  buf[11] = 0U;
+  at24c02_write_bytes(THRESH_BASE_ADDR, buf, THRESH_SIZE);
+  debug_uart_send_line("[STORE] Thresholds: saved to EEPROM");
 }

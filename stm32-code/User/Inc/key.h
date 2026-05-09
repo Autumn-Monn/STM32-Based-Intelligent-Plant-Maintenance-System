@@ -22,7 +22,8 @@ typedef enum
   KEY_EVENT_1_PRESSED,
   KEY_EVENT_2_PRESSED,
   KEY_EVENT_3_PRESSED,
-  KEY_EVENT_4_PRESSED
+  KEY_EVENT_4_PRESSED,
+  KEY_EVENT_1_LONG
 } key_event_t;
 
 void key_init(void);

@@ -31,10 +31,9 @@
 #include "debug_uart.h"
 #include "soil.h"
 #include "ds18b20.h"
-#include "i2c_test.h"
 #include "oled.h"
-#include "at24c02_test.h"
 #include "data_store.h"
+#include "control.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -106,9 +105,9 @@ int main(void)
   debug_uart_init();
   soil_init();
   ds18b20_init();
-  i2c_test_init();
   oled_init();
   data_store_init();
+  control_init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -119,52 +118,9 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
     key_scan();
-
-    {
-      key_event_t evt = key_get_event();
-      switch (evt)
-      {
-        case KEY_EVENT_1_PRESSED:
-          led_toggle(LED_BLUE);
-          debug_uart_send_line("[KEY] K1 -> LED_BLUE toggle");
-          break;
-        case KEY_EVENT_2_PRESSED:
-          led_toggle(LED_RED);
-          debug_uart_send_line("[KEY] K2 -> LED_RED toggle");
-          break;
-        case KEY_EVENT_3_PRESSED:
-          led_toggle(LED_GREEN);
-          debug_uart_send_line("[KEY] K3 -> LED_GREEN toggle");
-          break;
-        case KEY_EVENT_4_PRESSED:
-          relay_toggle(RELAY_PUMP);
-          debug_uart_send_line("[KEY] K4 -> RELAY_PUMP toggle");
-          break;
-        default:
-          break;
-      }
-    }
-
-    while (debug_uart_has_data())
-    {
-      uint8_t cmd = debug_uart_read_byte();
-      switch (cmd)
-      {
-        case '1': led_toggle(LED_BLUE);    debug_uart_send_line("[CMD] LED_BLUE toggle");  break;
-        case '2': led_toggle(LED_RED);      debug_uart_send_line("[CMD] LED_RED toggle");    break;
-        case '3': led_toggle(LED_GREEN);     debug_uart_send_line("[CMD] LED_GREEN toggle");   break;
-        case 'p': relay_toggle(RELAY_PUMP); debug_uart_send_line("[CMD] RELAY_PUMP toggle"); break;
-        case 'f': relay_toggle(RELAY_FAN);  debug_uart_send_line("[CMD] RELAY_FAN toggle");  break;
-        case 's': soil_stage6_demo();       break;
-        case 't': at24c02_run_all_tests();  break;
-        case 'd': data_store_dump();        break;
-        case 'c': data_store_clear();       break;
-        default:  break;
-      }
-    }
-
+    control_key_handler();
     ds18b20_task();
-    i2c_test_task();
+    control_task();
     oled_display_task();
     data_store_task();
   }

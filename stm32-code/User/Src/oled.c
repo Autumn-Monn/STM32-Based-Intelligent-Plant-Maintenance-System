@@ -1,5 +1,6 @@
 #include "oled.h"
 #include "oled_font.h"
+#include "control.h"
 #include "ds18b20.h"
 #include "soil.h"
 #include "i2c.h"
@@ -193,6 +194,210 @@ void oled_show_number(uint8_t row, uint8_t col, int32_t num)
   oled_show_string(row, col, buf);
 }
 
+/* ---------- temperature formatting helper ---------- */
+
+static void show_temp_value(uint8_t row, uint8_t col, int16_t raw)
+{
+  int16_t integer = raw / 16;
+  uint16_t frac = ((uint16_t)(raw > 0 ? raw : -raw) & 0x0FU) * 625U;
+  uint8_t frac_1 = (uint8_t)(frac / 1000U);
+
+  char temp_str[10];
+  uint8_t pos = 0U;
+
+  if (raw < 0 && integer == 0)
+  {
+    temp_str[pos++] = '-';
+  }
+  if (integer < 0)
+  {
+    temp_str[pos++] = '-';
+    integer = -integer;
+  }
+  if (integer >= 100)
+  {
+    temp_str[pos++] = '0' + (char)(integer / 100);
+  }
+  if (integer >= 10)
+  {
+    temp_str[pos++] = '0' + (char)((integer / 10) % 10);
+  }
+  temp_str[pos++] = '0' + (char)(integer % 10);
+  temp_str[pos++] = '.';
+  temp_str[pos++] = '0' + (char)frac_1;
+  temp_str[pos++] = 'C';
+  temp_str[pos] = '\0';
+
+  oled_show_string(row, col, temp_str);
+}
+
+/* ---------- run mode display ---------- */
+
+static void oled_show_run_screen(void)
+{
+  /* Row 0: 温度: XX.XC */
+  oled_show_hz(0, 0, HZ_WEN);
+  oled_show_hz(0, 16, HZ_DU);
+  oled_show_string(0, 32, ":");
+
+  if (ds18b20_is_valid())
+  {
+    show_temp_value(0, 40, g_ctrl.temp_raw);
+  }
+  else
+  {
+    oled_show_string(0, 40, "N/A");
+  }
+
+  /* Row 1: 湿度: XXXX */
+  oled_show_hz(1, 0, HZ_SHI);
+  oled_show_hz(1, 16, HZ_DU);
+  oled_show_string(1, 32, ":");
+  oled_show_number(1, 40, (int32_t)g_ctrl.soil_val);
+
+  /* Row 2: 自动/手动:P:OFF F:OFF */
+  if (g_ctrl.mode == SYS_MODE_AUTO)
+  {
+    oled_show_hz(2, 0, HZ_ZI);
+    oled_show_hz(2, 16, HZ_DONG);
+  }
+  else
+  {
+    oled_show_hz(2, 0, HZ_SHOU);
+    oled_show_hz(2, 16, HZ_DONG);
+  }
+  oled_show_string(2, 32, ":P:");
+  oled_show_string(2, 56, g_ctrl.pump_on ? "ON " : "OFF");
+  oled_show_string(2, 80, " F:");
+  oled_show_string(2, 104, g_ctrl.fan_on ? "ON" : "OF");
+
+  /* Row 3: 状态:正常/缺水/高温/报警 */
+  oled_show_hz(3, 0, HZ_ZHUANG);
+  oled_show_hz(3, 16, HZ_TAI);
+  oled_show_string(3, 32, ":");
+
+  switch (g_ctrl.status)
+  {
+    case SYS_STATUS_NORMAL:
+      oled_show_hz(3, 40, HZ_ZHENG);
+      oled_show_hz(3, 56, HZ_CHANG);
+      break;
+    case SYS_STATUS_DRY:
+      oled_show_hz(3, 40, HZ_QUE);
+      oled_show_hz(3, 56, HZ_SHUI);
+      break;
+    case SYS_STATUS_HOT:
+      oled_show_hz(3, 40, HZ_GAO);
+      oled_show_hz(3, 56, HZ_WEN);
+      break;
+    case SYS_STATUS_ALARM_DRY:
+      oled_show_hz(3, 40, HZ_QUE);
+      oled_show_hz(3, 56, HZ_SHUI);
+      oled_show_string(3, 72, "!");
+      break;
+    case SYS_STATUS_ALARM_HOT:
+      oled_show_hz(3, 40, HZ_GAO);
+      oled_show_hz(3, 56, HZ_WEN);
+      oled_show_string(3, 72, "!");
+      break;
+  }
+}
+
+/* ---------- settings mode display ---------- */
+
+static void oled_show_settings_screen(void)
+{
+  const threshold_config_t *s = (const threshold_config_t *)&g_ctrl.setting_buf;
+  uint8_t idx = g_ctrl.setting_index;
+
+  /* Row 0: == 设置 == */
+  oled_show_string(0, 0, "==");
+  oled_show_hz(0, 24, HZ_SHE);
+  oled_show_hz(0, 40, HZ_ZHI_SET);
+  oled_show_string(0, 56, "==");
+
+  /* Row 1: cursor + current setting name */
+  oled_show_string(1, 0, (idx == 0) ? ">" : " ");
+
+  switch (idx)
+  {
+    case 0:
+      oled_show_hz(1, 8, HZ_ZHI_PLANT);
+      oled_show_hz(1, 24, HZ_WU);
+      oled_show_string(1, 40, ":");
+      switch (s->plant_type)
+      {
+        case 0:
+          oled_show_hz(1, 48, HZ_NAI);
+          oled_show_hz(1, 64, HZ_HAN);
+          break;
+        case 1:
+          oled_show_hz(1, 48, HZ_CHANG);
+          oled_show_hz(1, 64, HZ_GUI);
+          break;
+        case 2:
+          oled_show_hz(1, 48, HZ_XI);
+          oled_show_hz(1, 64, HZ_SHI);
+          break;
+      }
+      break;
+
+    case 1:
+      oled_show_hz(1, 8, HZ_SHI);
+      oled_show_hz(1, 24, HZ_DU);
+      oled_show_hz(1, 40, HZ_XIA);
+      oled_show_string(1, 56, ":");
+      oled_show_number(1, 64, (int32_t)s->soil_low);
+      break;
+
+    case 2:
+      oled_show_hz(1, 8, HZ_SHI);
+      oled_show_hz(1, 24, HZ_DU);
+      oled_show_string(1, 40, "^:");
+      oled_show_number(1, 56, (int32_t)s->soil_high);
+      break;
+
+    case 3:
+      oled_show_hz(1, 8, HZ_WEN);
+      oled_show_hz(1, 24, HZ_DU);
+      oled_show_string(1, 40, "^:");
+      oled_show_number(1, 56, (int32_t)s->temp_high);
+      oled_show_string(1, 80, "C");
+      break;
+
+    case 4:
+      oled_show_hz(1, 8, HZ_WEN);
+      oled_show_string(1, 24, "!");
+      oled_show_string(1, 32, ":");
+      oled_show_number(1, 40, (int32_t)s->temp_alarm);
+      oled_show_string(1, 64, "C");
+      break;
+
+    case 5:
+      oled_show_hz(1, 8, HZ_SHI);
+      oled_show_string(1, 24, "!");
+      oled_show_string(1, 32, ":");
+      oled_show_number(1, 40, (int32_t)s->soil_alarm);
+      break;
+  }
+
+  /* Row 2: 阈值: current value summary */
+  oled_show_hz(2, 0, HZ_YU);
+  oled_show_hz(2, 16, HZ_ZHI_VAL);
+  oled_show_string(2, 32, ":");
+  oled_show_number(2, 40, (int32_t)(idx + 1));
+  oled_show_string(2, 48, "/");
+  oled_show_number(2, 56, SETTING_COUNT);
+
+  /* Row 3: K1:下项 K4:保存 */
+  oled_show_string(3, 0, "K1:");
+  oled_show_hz(3, 24, HZ_XIA);
+  oled_show_hz(3, 40, HZ_XIANG);
+  oled_show_string(3, 64, "K4:");
+  oled_show_hz(3, 88, HZ_BAO);
+  oled_show_hz(3, 104, HZ_CUN);
+}
+
 /* ---------- display task ---------- */
 
 void oled_display_task(void)
@@ -206,60 +411,14 @@ void oled_display_task(void)
 
   oled_clear();
 
-  /* Row 0: 温度: XX.X C */
-  oled_show_hz(0, 0, HZ_WEN);
-  oled_show_hz(0, 16, HZ_DU);
-  oled_show_string(0, 32, ":");
-
-  if (ds18b20_is_valid())
+  if (g_ctrl.mode == SYS_MODE_SETTINGS)
   {
-    int16_t raw = ds18b20_get_cached_raw();
-    int16_t integer = raw / 16;
-    uint16_t frac = ((uint16_t)(raw > 0 ? raw : -raw) & 0x0FU) * 625U;
-    uint8_t frac_1 = (uint8_t)(frac / 1000U);
-
-    char temp_str[10];
-    uint8_t pos = 0U;
-
-    if (raw < 0 && integer == 0)
-    {
-      temp_str[pos++] = '-';
-    }
-
-    if (integer < 0)
-    {
-      temp_str[pos++] = '-';
-      integer = -integer;
-    }
-
-    if (integer >= 100)
-    {
-      temp_str[pos++] = '0' + (char)(integer / 100);
-    }
-    if (integer >= 10)
-    {
-      temp_str[pos++] = '0' + (char)((integer / 10) % 10);
-    }
-    temp_str[pos++] = '0' + (char)(integer % 10);
-    temp_str[pos++] = '.';
-    temp_str[pos++] = '0' + (char)frac_1;
-    temp_str[pos++] = 'C';
-    temp_str[pos] = '\0';
-
-    oled_show_string(0, 40, temp_str);
+    oled_show_settings_screen();
   }
   else
   {
-    oled_show_string(0, 40, "N/A");
+    oled_show_run_screen();
   }
-
-  /* Row 1: 湿度: XXXX */
-  oled_show_hz(1, 0, HZ_SHI);
-  oled_show_hz(1, 16, HZ_DU);
-  oled_show_string(1, 32, ":");
-
-  uint16_t soil_val = soil_read_avg(4);
-  oled_show_number(1, 40, (int32_t)soil_val);
 
   oled_refresh();
 }

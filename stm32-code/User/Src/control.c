@@ -1,0 +1,400 @@
+#include "control.h"
+#include "key.h"
+#include "led.h"
+#include "relay.h"
+#include "beep.h"
+#include "soil.h"
+#include "ds18b20.h"
+#include "debug_uart.h"
+#include "data_store.h"
+
+#define CONTROL_PERIOD_MS       500U
+#define ALARM_TOGGLE_MS         300U
+#define TEMP_HYSTERESIS_RAW     32      /* 2C * 16 = 32 raw units */
+
+static const threshold_config_t PRESETS[3] = {
+  { 0, 1400, 1800, 38, 43, 1000 },
+  { 1, 1800, 2200, 35, 40, 1200 },
+  { 2, 2200, 2800, 32, 37, 1600 },
+};
+
+volatile control_state_t g_ctrl;
+
+static uint32_t g_ctrl_tick = 0U;
+static uint32_t g_alarm_tick = 0U;
+
+static void control_auto_logic(void);
+static void control_update_led(void);
+static void control_update_alarm(void);
+static void control_log_status_change(sys_status_t old_st);
+
+void control_init(void)
+{
+  data_store_load_thresholds((threshold_config_t *)&g_ctrl.thresh);
+
+  g_ctrl.mode         = SYS_MODE_AUTO;
+  g_ctrl.status       = SYS_STATUS_NORMAL;
+  g_ctrl.pump_on      = 0U;
+  g_ctrl.fan_on       = 0U;
+  g_ctrl.alarm_active = 0U;
+  g_ctrl.alarm_muted  = 0U;
+  g_ctrl.temp_raw     = 0;
+  g_ctrl.soil_val     = 0U;
+  g_ctrl.setting_index = 0U;
+
+  /* relay_off(RELAY_PUMP);  TODO: PCB电路缺陷，暂不驱动继电器 */
+  /* relay_off(RELAY_FAN);   TODO: PCB电路缺陷，暂不驱动继电器 */
+  beep_off();
+  led_off(LED_RED);
+  led_off(LED_BLUE);
+  led_on(LED_GREEN);
+
+  g_ctrl_tick  = HAL_GetTick();
+  g_alarm_tick = HAL_GetTick();
+
+  debug_uart_send_line("[CTRL] Init: AUTO mode");
+}
+
+/* -------- main control task -------- */
+
+void control_task(void)
+{
+  uint32_t now = HAL_GetTick();
+  if ((now - g_ctrl_tick) < CONTROL_PERIOD_MS)
+  {
+    return;
+  }
+  g_ctrl_tick = now;
+
+  g_ctrl.soil_val = soil_read_avg(4);
+  if (ds18b20_is_valid())
+  {
+    g_ctrl.temp_raw = ds18b20_get_cached_raw();
+  }
+
+  if (g_ctrl.mode == SYS_MODE_AUTO)
+  {
+    control_auto_logic();
+  }
+
+  control_update_led();
+  control_update_alarm();
+}
+
+/* -------- auto control with hysteresis -------- */
+
+static void control_auto_logic(void)
+{
+  sys_status_t old_st = g_ctrl.status;
+  uint16_t soil = g_ctrl.soil_val;
+  int16_t  temp = g_ctrl.temp_raw;
+  int16_t  temp_high_raw  = (int16_t)g_ctrl.thresh.temp_high * 16;
+  int16_t  temp_alarm_raw = (int16_t)g_ctrl.thresh.temp_alarm * 16;
+
+  /* --- soil / pump --- */
+  if (soil < g_ctrl.thresh.soil_low)
+  {
+    if (!g_ctrl.pump_on)
+    {
+      /* relay_on(RELAY_PUMP);  TODO: PCB电路缺陷，暂不驱动继电器 */
+      g_ctrl.pump_on = 1U;
+      debug_uart_send_line("[CTRL] Pump ON (dry)");
+    }
+  }
+  else if (soil >= g_ctrl.thresh.soil_high)
+  {
+    if (g_ctrl.pump_on)
+    {
+      /* relay_off(RELAY_PUMP);  TODO: PCB电路缺陷，暂不驱动继电器 */
+      g_ctrl.pump_on = 0U;
+      debug_uart_send_line("[CTRL] Pump OFF (wet)");
+    }
+  }
+
+  /* --- temp / fan --- */
+  if (ds18b20_is_valid())
+  {
+    if (temp > temp_high_raw)
+    {
+      if (!g_ctrl.fan_on)
+      {
+        /* relay_on(RELAY_FAN);  TODO: PCB电路缺陷，暂不驱动继电器 */
+        g_ctrl.fan_on = 1U;
+        debug_uart_send_line("[CTRL] Fan ON (hot)");
+      }
+    }
+    else if (temp <= (temp_high_raw - TEMP_HYSTERESIS_RAW))
+    {
+      if (g_ctrl.fan_on)
+      {
+        /* relay_off(RELAY_FAN);  TODO: PCB电路缺陷，暂不驱动继电器 */
+        g_ctrl.fan_on = 0U;
+        debug_uart_send_line("[CTRL] Fan OFF (cool)");
+      }
+    }
+  }
+
+  /* --- status determination --- */
+  uint8_t soil_alarm = (soil < g_ctrl.thresh.soil_alarm) ? 1U : 0U;
+  uint8_t temp_alarm = (ds18b20_is_valid() && temp > temp_alarm_raw) ? 1U : 0U;
+
+  if (soil_alarm)
+  {
+    g_ctrl.status = SYS_STATUS_ALARM_DRY;
+  }
+  else if (temp_alarm)
+  {
+    g_ctrl.status = SYS_STATUS_ALARM_HOT;
+  }
+  else if (soil < g_ctrl.thresh.soil_low)
+  {
+    g_ctrl.status = SYS_STATUS_DRY;
+  }
+  else if (ds18b20_is_valid() && temp > temp_high_raw)
+  {
+    g_ctrl.status = SYS_STATUS_HOT;
+  }
+  else
+  {
+    g_ctrl.status = SYS_STATUS_NORMAL;
+  }
+
+  if (g_ctrl.status != old_st)
+  {
+    g_ctrl.alarm_muted = 0U;
+    control_log_status_change(old_st);
+  }
+
+  g_ctrl.alarm_active = (g_ctrl.status == SYS_STATUS_ALARM_DRY ||
+                          g_ctrl.status == SYS_STATUS_ALARM_HOT) ? 1U : 0U;
+}
+
+/* -------- LED indicator -------- */
+
+static void control_update_led(void)
+{
+  if (g_ctrl.mode == SYS_MODE_SETTINGS)
+  {
+    led_off(LED_GREEN);
+    led_off(LED_RED);
+    led_on(LED_BLUE);
+    return;
+  }
+
+  switch (g_ctrl.status)
+  {
+    case SYS_STATUS_NORMAL:
+      led_on(LED_GREEN);
+      led_off(LED_RED);
+      led_off(LED_BLUE);
+      break;
+
+    case SYS_STATUS_DRY:
+      led_off(LED_GREEN);
+      led_on(LED_RED);
+      led_off(LED_BLUE);
+      break;
+
+    case SYS_STATUS_HOT:
+      led_off(LED_GREEN);
+      led_off(LED_RED);
+      led_on(LED_BLUE);
+      break;
+
+    case SYS_STATUS_ALARM_DRY:
+    case SYS_STATUS_ALARM_HOT:
+      led_off(LED_GREEN);
+      led_toggle(LED_RED);
+      led_off(LED_BLUE);
+      break;
+  }
+}
+
+/* -------- alarm buzzer -------- */
+
+static void control_update_alarm(void)
+{
+  if (!g_ctrl.alarm_active || g_ctrl.alarm_muted)
+  {
+    beep_off();
+    return;
+  }
+
+  uint32_t now = HAL_GetTick();
+  if ((now - g_alarm_tick) >= ALARM_TOGGLE_MS)
+  {
+    g_alarm_tick = now;
+    beep_toggle();
+  }
+}
+
+/* -------- key handler -------- */
+
+void control_key_handler(void)
+{
+  key_event_t evt;
+
+  while ((evt = key_get_event()) != KEY_EVENT_NONE)
+  {
+    if (g_ctrl.mode == SYS_MODE_SETTINGS)
+    {
+      /* --- settings mode keys --- */
+      switch (evt)
+      {
+        case KEY_EVENT_1_PRESSED:
+          g_ctrl.setting_index++;
+          if (g_ctrl.setting_index >= SETTING_COUNT)
+          {
+            g_ctrl.setting_index = 0U;
+          }
+          break;
+
+        case KEY_EVENT_2_PRESSED:
+        {
+          threshold_config_t *s = (threshold_config_t *)&g_ctrl.setting_buf;
+          switch (g_ctrl.setting_index)
+          {
+            case 0:
+              if (s->plant_type > 0U)
+              {
+                s->plant_type--;
+                *s = PRESETS[s->plant_type];
+              }
+              break;
+            case 1: if (s->soil_low  >= 600U)  s->soil_low  -= 100U; break;
+            case 2: if (s->soil_high >= 900U)  s->soil_high -= 100U; break;
+            case 3: if (s->temp_high > 20U)    s->temp_high--;       break;
+            case 4: if (s->temp_alarm > 25U)   s->temp_alarm--;      break;
+            case 5: if (s->soil_alarm >= 400U) s->soil_alarm -= 100U; break;
+          }
+          break;
+        }
+
+        case KEY_EVENT_3_PRESSED:
+        {
+          threshold_config_t *s = (threshold_config_t *)&g_ctrl.setting_buf;
+          switch (g_ctrl.setting_index)
+          {
+            case 0:
+              if (s->plant_type < 2U)
+              {
+                s->plant_type++;
+                *s = PRESETS[s->plant_type];
+              }
+              break;
+            case 1: if (s->soil_low  <= 3400U) s->soil_low  += 100U; break;
+            case 2: if (s->soil_high <= 3700U) s->soil_high += 100U; break;
+            case 3: if (s->temp_high < 50U)    s->temp_high++;       break;
+            case 4: if (s->temp_alarm < 55U)   s->temp_alarm++;      break;
+            case 5: if (s->soil_alarm <= 2400U) s->soil_alarm += 100U; break;
+          }
+          break;
+        }
+
+        case KEY_EVENT_4_PRESSED:
+        {
+          threshold_config_t *s = (threshold_config_t *)&g_ctrl.setting_buf;
+          *((threshold_config_t *)&g_ctrl.thresh) = *s;
+          data_store_save_thresholds(s);
+          g_ctrl.mode = SYS_MODE_AUTO;
+          g_ctrl.alarm_muted = 0U;
+          debug_uart_send_line("[CTRL] Settings saved, back to AUTO");
+          break;
+        }
+
+        default:
+          break;
+      }
+    }
+    else
+    {
+      /* --- run mode keys --- */
+      switch (evt)
+      {
+        case KEY_EVENT_1_PRESSED:
+          if (g_ctrl.mode == SYS_MODE_AUTO)
+          {
+            g_ctrl.mode = SYS_MODE_MANUAL;
+            debug_uart_send_line("[CTRL] Mode: MANUAL");
+          }
+          else
+          {
+            g_ctrl.mode = SYS_MODE_AUTO;
+            debug_uart_send_line("[CTRL] Mode: AUTO");
+          }
+          break;
+
+        case KEY_EVENT_1_LONG:
+          g_ctrl.setting_buf = *((const threshold_config_t *)&g_ctrl.thresh);
+          g_ctrl.setting_index = 0U;
+          g_ctrl.mode = SYS_MODE_SETTINGS;
+          debug_uart_send_line("[CTRL] Mode: SETTINGS");
+          break;
+
+        case KEY_EVENT_2_PRESSED:
+          if (g_ctrl.mode == SYS_MODE_MANUAL)
+          {
+            if (g_ctrl.pump_on)
+            {
+              /* relay_off(RELAY_PUMP);  TODO: PCB电路缺陷，暂不驱动继电器 */
+              g_ctrl.pump_on = 0U;
+              debug_uart_send_line("[CTRL] Manual: Pump OFF");
+            }
+            else
+            {
+              /* relay_on(RELAY_PUMP);  TODO: PCB电路缺陷，暂不驱动继电器 */
+              g_ctrl.pump_on = 1U;
+              debug_uart_send_line("[CTRL] Manual: Pump ON");
+            }
+          }
+          break;
+
+        case KEY_EVENT_3_PRESSED:
+          if (g_ctrl.mode == SYS_MODE_MANUAL)
+          {
+            if (g_ctrl.fan_on)
+            {
+              /* relay_off(RELAY_FAN);  TODO: PCB电路缺陷，暂不驱动继电器 */
+              g_ctrl.fan_on = 0U;
+              debug_uart_send_line("[CTRL] Manual: Fan OFF");
+            }
+            else
+            {
+              /* relay_on(RELAY_FAN);  TODO: PCB电路缺陷，暂不驱动继电器 */
+              g_ctrl.fan_on = 1U;
+              debug_uart_send_line("[CTRL] Manual: Fan ON");
+            }
+          }
+          break;
+
+        case KEY_EVENT_4_PRESSED:
+          if (g_ctrl.alarm_active)
+          {
+            g_ctrl.alarm_muted = 1U;
+            beep_off();
+            debug_uart_send_line("[CTRL] Alarm muted");
+          }
+          break;
+
+        default:
+          break;
+      }
+    }
+  }
+}
+
+/* -------- debug log -------- */
+
+static void control_log_status_change(sys_status_t old_st)
+{
+  (void)old_st;
+  debug_uart_send_string("[CTRL] Status: ");
+  switch (g_ctrl.status)
+  {
+    case SYS_STATUS_NORMAL:    debug_uart_send_line("NORMAL");    break;
+    case SYS_STATUS_DRY:       debug_uart_send_line("DRY");       break;
+    case SYS_STATUS_HOT:       debug_uart_send_line("HOT");       break;
+    case SYS_STATUS_ALARM_DRY: debug_uart_send_line("ALARM_DRY"); break;
+    case SYS_STATUS_ALARM_HOT: debug_uart_send_line("ALARM_HOT"); break;
+  }
+}
