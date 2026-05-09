@@ -52,6 +52,12 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     User/Src/relay.c
     User/Src/debug_uart.c
     User/Src/soil.c
+    User/Src/ds18b20.c
+    User/Src/i2c_test.c
+    User/Src/oled.c
+    User/Src/at24c02.c
+    User/Src/at24c02_test.c
+    User/Src/data_store.c
 )
 
 # Add include paths

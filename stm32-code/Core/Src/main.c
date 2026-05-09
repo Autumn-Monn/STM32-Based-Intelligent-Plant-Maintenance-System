@@ -30,6 +30,11 @@
 #include "relay.h"
 #include "debug_uart.h"
 #include "soil.h"
+#include "ds18b20.h"
+#include "i2c_test.h"
+#include "oled.h"
+#include "at24c02_test.h"
+#include "data_store.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -100,6 +105,10 @@ int main(void)
   relay_init();
   debug_uart_init();
   soil_init();
+  ds18b20_init();
+  i2c_test_init();
+  oled_init();
+  data_store_init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -147,11 +156,17 @@ int main(void)
         case 'p': relay_toggle(RELAY_PUMP); debug_uart_send_line("[CMD] RELAY_PUMP toggle"); break;
         case 'f': relay_toggle(RELAY_FAN);  debug_uart_send_line("[CMD] RELAY_FAN toggle");  break;
         case 's': soil_stage6_demo();       break;
+        case 't': at24c02_run_all_tests();  break;
+        case 'd': data_store_dump();        break;
+        case 'c': data_store_clear();       break;
         default:  break;
       }
     }
 
-    soil_stage6_demo();
+    ds18b20_task();
+    i2c_test_task();
+    oled_display_task();
+    data_store_task();
   }
   /* USER CODE END 3 */
 }
