@@ -6,6 +6,10 @@
 
 STM32F103C8T6 智能盆栽养护系统固件，使用 STM32CubeMX + HAL 库 + CMake (Ninja) + arm-none-eabi-gcc 工具链开发。项目按 `demo/STM32渐进式开发规划（HAL-only）.md` 中定义的阶段化开发流程推进，已完成阶段 1~3 + 4A（GPIO 点灯、按键轮询、EXTI 中断、蜂鸣器输出）。
 
+## 回答语言偏好
+
+回复时除专业技术名词，使用中文回答。
+
 ## 构建命令
 
 ```bash

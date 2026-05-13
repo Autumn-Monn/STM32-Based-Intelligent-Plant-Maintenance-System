@@ -1,0 +1,57 @@
+OneNET信息:
+产品ID: lGAVyi7tu9
+设备ID/名称: temperature
+设备密钥: NFY2bW96bVVVZVRmV3pPTGx3dGVFeUpoeDJ5aFlMSVA=
+
+token生成信息:
+res格式: products/lGAVyi7tu9/devices/temperature
+时间戳: 1805693871 (可直接用)
+个人生成的token:
+version=2018-10-31&res=products%2FlGAVyi7tu9%2Fdevices%2Ftemperature&et=1904803798&method=md5&sign=y0U3QpZP5%2BE7uD%2BwuS177w%3D%3D
+
+基础AT指令步骤:
+第一步: AT测试
+AT
+
+第二步: 设置为STA模式
+AT+CWMODE=1
+
+第三步: 连接WIFI
+AT+CWJAP="名称","密码"
+
+MQTT指令步骤:
+第一步: 设置用户属性
+AT+MQTTUSERCFG=0,1,"temperature","lGAVyi7tu9","version=2018-10-31&res=products%2FlGAVyi7tu9%2Fdevices%2Ftemperature&et=1904803798&method=md5&sign=y0U3QpZP5%2BE7uD%2BwuS177w%3D%3D",0,0,""
+
+第二步: 连接OneNET服务器
+AT+MQTTCONN=0,"mqtts.heclouds.com",1883,1
+
+第三步: 订阅主题
+AT+MQTTSUB=0,"$sys/lGAVyi7tu9/temperature/thing/property/post/reply",0 //订阅 "设备属性上报响应" 主题
+
+AT+MQTTSUB=0,"$sys/lGAVyi7tu9/temperature/thing/property/set",0 //订阅 "设备属性设置请求" 主题 (可选)
+
+第四步: 发送MQTT数据
+AT+MQTTPUBRAW=0,"$sys/lGAVyi7tu9/temperature/thing/property/post",数据长度,0,0 //发送长数据 (常用, 先发指令, 再发内容, 需计算内容长度，需要在发送信息的字符串后+1字符--换行符)
+
+{"id":"123456","params":{"temperature":{"value":23.7}}} //数据内容 (单个数据上传)
+
+{"id":"123456","params":{"temperature":{"value":数据1},"标识符名称2":{"value":数据2}}} //数据内容 (多个数据一起上传)
+
+第五步: 发送API调试的响应 (可选)
+AT+MQTTPUBRAW=0,"$sys/lGAVyi7tu9/mytext/thing/property/set_reply",数据长度（需要在发送信息的字符串后+1字符--换行符）,0,0
+//发送长数据 (数据响应)
+{"id":"2","code":200,"msg":"user succ"}
+
+AT+CWJAP="HONORMagic8","99999999"
+
+AT+MQTTUSERCFG=0,1,"temperature","lGAVyi7tu9","version=2018-10-31&res=products%2FlGAVyi7tu9%2Fdevices%2Ftemper
+
+ature&et=1904803798&method=md5&sign=y0U3QpZP5%2BE7uD%2BwuS177w%3D%3D",0,0,""
+
+AT+MQTTCONN=0,"mqtts.heclouds.com",1883,1
+
+AT+MQTTSUB=0,"$sys/lGAVyi7tu9/temperature/thing/property/post/reply",0
+
+AT+MQTTSUB=0,"$sys/lGAVyi7tu9/temperature/thing/property/set",0
+

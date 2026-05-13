@@ -1,0 +1,118 @@
+{
+  "version": "1.0",
+  "profile": {
+    "industryId": "2",
+    "sceneId": "19",
+    "categoryId": "1170",
+    "productId": "lGAVyi7tu9"
+  },
+  "properties": [
+    {
+      "identifier": "fan_state",
+      "name": "风扇",
+      "functionType": "u",
+      "accessMode": "rw",
+      "desc": "",
+      "dataType": {
+        "type": "bool",
+        "specs": {
+          "true": "1",
+          "false": "0"
+        }
+      },
+      "functionMode": "property",
+      "required": false
+    },
+    {
+      "identifier": "mode",
+      "name": "运行模式",
+      "functionType": "u",
+      "accessMode": "rw",
+      "desc": "",
+      "dataType": {
+        "type": "enum",
+        "specs": {
+          "0": "自动模式-SYS_MODE_AUTO",
+          "1": "手动模式-SYS_MODE_MANU",
+          "2": "设置模式-SYS_MODE_SETT"
+        }
+      },
+      "functionMode": "property",
+      "required": false
+    },
+    {
+      "identifier": "pump_state",
+      "name": "水泵",
+      "functionType": "u",
+      "accessMode": "rw",
+      "desc": "",
+      "dataType": {
+        "type": "bool",
+        "specs": {
+          "true": "1",
+          "false": "0"
+        }
+      },
+      "functionMode": "property",
+      "required": false
+    },
+    {
+      "identifier": "soil_moisture",
+      "name": "湿度",
+      "functionType": "u",
+      "accessMode": "rw",
+      "desc": "",
+      "dataType": {
+        "type": "int32",
+        "specs": {
+          "max": "100",
+          "min": "0",
+          "step": "1",
+          "unit": "相对湿度 / %RH"
+        }
+      },
+      "functionMode": "property",
+      "required": false
+    },
+    {
+      "identifier": "status",
+      "name": "系统状态",
+      "functionType": "u",
+      "accessMode": "rw",
+      "desc": "",
+      "dataType": {
+        "type": "enum",
+        "specs": {
+          "0": "正常",
+          "1": "缺水",
+          "2": "高温",
+          "3": "缺水报警",
+          "4": "高温报警"
+        }
+      },
+      "functionMode": "property",
+      "required": false
+    },
+    {
+      "identifier": "temperature",
+      "name": "温度",
+      "functionType": "u",
+      "accessMode": "rw",
+      "desc": "",
+      "dataType": {
+        "type": "float",
+        "specs": {
+          "max": "100",
+          "min": "-20",
+          "step": "0.1",
+          "unit": "摄氏度 / °C"
+        }
+      },
+      "functionMode": "property",
+      "required": false
+    }
+  ],
+  "events": [],
+  "services": [],
+  "combs": []
+}

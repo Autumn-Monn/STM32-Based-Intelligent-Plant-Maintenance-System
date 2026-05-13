@@ -34,6 +34,7 @@
 #include "oled.h"
 #include "data_store.h"
 #include "control.h"
+#include "esp8266.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -108,6 +109,7 @@ int main(void)
   oled_init();
   data_store_init();
   control_init();
+  esp8266_init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -121,6 +123,7 @@ int main(void)
     control_key_handler();
     ds18b20_task();
     control_task();
+    esp8266_task();
     oled_display_task();
     data_store_task();
   }
@@ -183,7 +186,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   if (huart->Instance == USART1)
   {
-    debug_uart_rx_callback();
+    esp8266_rx_callback();
+  }
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+  if (huart->Instance == USART1)
+  {
+    esp8266_rx_callback();
   }
 }
 

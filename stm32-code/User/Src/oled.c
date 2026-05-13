@@ -1,6 +1,7 @@
 #include "oled.h"
 #include "oled_font.h"
 #include "control.h"
+#include "esp8266.h"
 #include "ds18b20.h"
 #include "soil.h"
 #include "i2c.h"
@@ -300,6 +301,24 @@ static void oled_show_run_screen(void)
       oled_show_hz(3, 56, HZ_WEN);
       oled_show_string(3, 72, "!");
       break;
+  }
+
+  /* WiFi/MQTT 状态指示（右上角） */
+  if (esp8266_mqtt_is_connected())
+  {
+    oled_show_string(0, 96, "M:OK");
+  }
+  else if (esp8266_get_state() == ESP_CONN_ERROR)
+  {
+    oled_show_string(0, 96, "W:Er");
+  }
+  else if (esp8266_get_state() == ESP_CONN_IDLE)
+  {
+    oled_show_string(0, 96, "W:--");
+  }
+  else
+  {
+    oled_show_string(0, 96, "W:..");
   }
 }
 
