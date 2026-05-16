@@ -12,9 +12,8 @@ typedef struct
   uint8_t  plant_type;
   uint16_t soil_low;
   uint16_t soil_high;
+  uint8_t  temp_low;
   uint8_t  temp_high;
-  uint8_t  temp_alarm;
-  uint16_t soil_alarm;
 } threshold_config_t;
 
 void data_store_init(void);

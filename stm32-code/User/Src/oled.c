@@ -272,7 +272,7 @@ static void oled_show_run_screen(void)
   oled_show_string(2, 80, " F:");
   oled_show_string(2, 104, g_ctrl.fan_on ? "ON" : "OF");
 
-  /* Row 3: 状态:正常/缺水/高温/报警 */
+  /* Row 3: 状态:正常/缺水/高温 */
   oled_show_hz(3, 0, HZ_ZHUANG);
   oled_show_hz(3, 16, HZ_TAI);
   oled_show_string(3, 32, ":");
@@ -286,20 +286,14 @@ static void oled_show_run_screen(void)
     case SYS_STATUS_DRY:
       oled_show_hz(3, 40, HZ_QUE);
       oled_show_hz(3, 56, HZ_SHUI);
+      if (g_ctrl.alarm_active)
+        oled_show_string(3, 72, "!");
       break;
     case SYS_STATUS_HOT:
       oled_show_hz(3, 40, HZ_GAO);
       oled_show_hz(3, 56, HZ_WEN);
-      break;
-    case SYS_STATUS_ALARM_DRY:
-      oled_show_hz(3, 40, HZ_QUE);
-      oled_show_hz(3, 56, HZ_SHUI);
-      oled_show_string(3, 72, "!");
-      break;
-    case SYS_STATUS_ALARM_HOT:
-      oled_show_hz(3, 40, HZ_GAO);
-      oled_show_hz(3, 56, HZ_WEN);
-      oled_show_string(3, 72, "!");
+      if (g_ctrl.alarm_active)
+        oled_show_string(3, 72, "!");
       break;
   }
 
@@ -335,8 +329,8 @@ static void oled_show_settings_screen(void)
   oled_show_hz(0, 40, HZ_ZHI_SET);
   oled_show_string(0, 56, "==");
 
-  /* Row 1: cursor + current setting name */
-  oled_show_string(1, 0, (idx == 0) ? ">" : " ");
+  /* Row 1: cursor + current setting name + value */
+  oled_show_string(1, 0, ">");
 
   switch (idx)
   {
@@ -372,35 +366,31 @@ static void oled_show_settings_screen(void)
     case 2:
       oled_show_hz(1, 8, HZ_SHI);
       oled_show_hz(1, 24, HZ_DU);
-      oled_show_string(1, 40, "^:");
-      oled_show_number(1, 56, (int32_t)s->soil_high);
+      oled_show_hz(1, 40, HZ_SHANG);
+      oled_show_string(1, 56, ":");
+      oled_show_number(1, 64, (int32_t)s->soil_high);
       break;
 
     case 3:
       oled_show_hz(1, 8, HZ_WEN);
       oled_show_hz(1, 24, HZ_DU);
-      oled_show_string(1, 40, "^:");
-      oled_show_number(1, 56, (int32_t)s->temp_high);
-      oled_show_string(1, 80, "C");
+      oled_show_hz(1, 40, HZ_XIA);
+      oled_show_string(1, 56, ":");
+      oled_show_number(1, 64, (int32_t)s->temp_low);
+      oled_show_string(1, 88, "C");
       break;
 
     case 4:
       oled_show_hz(1, 8, HZ_WEN);
-      oled_show_string(1, 24, "!");
-      oled_show_string(1, 32, ":");
-      oled_show_number(1, 40, (int32_t)s->temp_alarm);
-      oled_show_string(1, 64, "C");
-      break;
-
-    case 5:
-      oled_show_hz(1, 8, HZ_SHI);
-      oled_show_string(1, 24, "!");
-      oled_show_string(1, 32, ":");
-      oled_show_number(1, 40, (int32_t)s->soil_alarm);
+      oled_show_hz(1, 24, HZ_DU);
+      oled_show_hz(1, 40, HZ_SHANG);
+      oled_show_string(1, 56, ":");
+      oled_show_number(1, 64, (int32_t)s->temp_high);
+      oled_show_string(1, 88, "C");
       break;
   }
 
-  /* Row 2: 阈值: current value summary */
+  /* Row 2: 阈值: X/5 */
   oled_show_hz(2, 0, HZ_YU);
   oled_show_hz(2, 16, HZ_ZHI_VAL);
   oled_show_string(2, 32, ":");

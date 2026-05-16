@@ -8,7 +8,7 @@ extern "C" {
 #include "main.h"
 #include "data_store.h"
 
-#define SETTING_COUNT  6
+#define SETTING_COUNT  5
 
 typedef enum
 {
@@ -21,9 +21,7 @@ typedef enum
 {
   SYS_STATUS_NORMAL = 0,
   SYS_STATUS_DRY,
-  SYS_STATUS_HOT,
-  SYS_STATUS_ALARM_DRY,
-  SYS_STATUS_ALARM_HOT
+  SYS_STATUS_HOT
 } sys_status_t;
 
 typedef struct
