@@ -41,6 +41,14 @@ uint16_t soil_read_avg(uint8_t samples)
   return (uint16_t)(sum / samples);
 }
 
+uint8_t soil_adc_to_percent(uint16_t adc_val)
+{
+  if (adc_val >= 4095U) return 0U;
+  if (adc_val == 0U) return 100U;
+  uint16_t pct = (4095U - adc_val) * 100U / 4095U;
+  return (uint8_t)(pct > 100U ? 100U : pct);
+}
+
 void soil_stage6_demo(void)
 {
   uint32_t now = HAL_GetTick();

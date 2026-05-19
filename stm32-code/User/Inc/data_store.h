@@ -10,8 +10,8 @@ extern "C" {
 typedef struct
 {
   uint8_t  plant_type;
-  uint16_t soil_low;
-  uint16_t soil_high;
+  uint8_t  soil_low;
+  uint8_t  soil_high;
   uint8_t  temp_low;
   uint8_t  temp_high;
 } threshold_config_t;

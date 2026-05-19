@@ -14,7 +14,8 @@ extern UART_HandleTypeDef huart1;
 #define RECONNECT_DELAY_MS 5000U
 #define AT_RETRY_MAX       3U
 #define CWJAP_RETRY_MAX    2U
-#define MQTT_CONN_RETRY_MAX 2U
+#define MQTT_CONN_RETRY_MAX  2U
+#define MQTT_SETTLE_MS       500U
 #define MQTT_PUB_TIMEOUT_MS 6000U
 
 /* ---- RX 线性缓冲区 ---- */
@@ -59,11 +60,13 @@ static void rx_buf_clear(void)
   __enable_irq();
 }
 
+#define UART_TX_TIMEOUT_MS  50U
+
 static void at_send(const char *cmd, const char *expect, uint32_t timeout_ms)
 {
   rx_buf_clear();
   HAL_UART_Transmit(&huart1, (uint8_t *)cmd,
-                     (uint16_t)strlen(cmd), 1000);
+                     (uint16_t)strlen(cmd), UART_TX_TIMEOUT_MS);
   g_at_expect  = expect;
   g_at_timeout = timeout_ms;
   g_at_start   = HAL_GetTick();
@@ -132,7 +135,7 @@ static void start_mqtt_conn(void)
   static char cmd[80];
   snprintf(cmd, sizeof(cmd),
     "AT+MQTTCONN=0,\"%s\",%d,1\r\n", MQTT_BROKER, MQTT_PORT);
-  at_send(cmd, "OK", 10000);
+  at_send(cmd, "+MQTTCONNECTED", 15000);
   g_conn_state = ESP_CONN_MQTT_CONN;
 }
 
@@ -166,8 +169,7 @@ static void mqtt_build_payload(void)
   int16_t temp_frac = (g_ctrl.temp_raw % 16) * 10 / 16;
   if (temp_frac < 0) temp_frac = -temp_frac;
 
-  unsigned soil_pct = (unsigned)g_ctrl.soil_val * 100U / 4096U;
-  if (soil_pct > 100U) soil_pct = 100U;
+  unsigned soil_pct = (unsigned)g_ctrl.soil_pct;
 
   snprintf(g_pub_payload, sizeof(g_pub_payload),
     "{\"id\":\"123\",\"params\":{"
@@ -450,7 +452,8 @@ void esp8266_task(void)
     resp = at_check();
     if (resp == 1U)
     {
-      start_mqtt_sub1();
+      g_conn_tick  = now;
+      g_conn_state = ESP_CONN_MQTT_WAIT;
     }
     else if (resp == 2U)
     {
@@ -466,16 +469,32 @@ void esp8266_task(void)
     }
     break;
 
+  case ESP_CONN_MQTT_WAIT:
+    if ((now - g_conn_tick) >= MQTT_SETTLE_MS)
+    {
+      g_retry_cnt = 0U;
+      start_mqtt_sub1();
+    }
+    break;
+
   case ESP_CONN_MQTT_SUB1:
     resp = at_check();
     if (resp == 1U)
     {
+      g_retry_cnt = 0U;
       start_mqtt_sub2();
     }
     else if (resp == 2U)
     {
-      g_conn_tick  = now;
-      g_conn_state = ESP_CONN_ERROR;
+      if (++g_retry_cnt < MQTT_CONN_RETRY_MAX)
+      {
+        start_mqtt_sub1();
+      }
+      else
+      {
+        g_retry_cnt = 0U;
+        start_mqtt_sub2();
+      }
     }
     break;
 
@@ -483,13 +502,20 @@ void esp8266_task(void)
     resp = at_check();
     if (resp == 1U)
     {
-      g_pub_tick   = now;
+      g_pub_tick   = 0U;
       g_conn_state = ESP_CONN_MQTT_OK;
     }
     else if (resp == 2U)
     {
-      g_conn_tick  = now;
-      g_conn_state = ESP_CONN_ERROR;
+      if (++g_retry_cnt < MQTT_CONN_RETRY_MAX)
+      {
+        start_mqtt_sub2();
+      }
+      else
+      {
+        g_pub_tick   = 0U;
+        g_conn_state = ESP_CONN_MQTT_OK;
+      }
     }
     break;
 
@@ -518,7 +544,7 @@ void esp8266_task(void)
     {
       rx_buf_clear();
       HAL_UART_Transmit(&huart1, (uint8_t *)g_pub_payload,
-                        (uint16_t)strlen(g_pub_payload), 2000);
+                        (uint16_t)strlen(g_pub_payload), UART_TX_TIMEOUT_MS);
       g_at_expect  = "OK";
       g_at_timeout = MQTT_PUB_TIMEOUT_MS;
       g_at_start   = HAL_GetTick();
@@ -554,7 +580,7 @@ void esp8266_task(void)
     {
       rx_buf_clear();
       HAL_UART_Transmit(&huart1, (uint8_t *)g_reply_payload,
-                        (uint16_t)strlen(g_reply_payload), 2000);
+                        (uint16_t)strlen(g_reply_payload), UART_TX_TIMEOUT_MS);
       g_at_expect  = "OK";
       g_at_timeout = MQTT_PUB_TIMEOUT_MS;
       g_at_start   = HAL_GetTick();

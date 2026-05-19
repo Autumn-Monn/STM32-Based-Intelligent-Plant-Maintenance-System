@@ -10,20 +10,18 @@
 
 #define CONTROL_PERIOD_MS       500U
 #define ALARM_TOGGLE_MS         300U
-#define ALARM_MUTE_TIMEOUT_MS   60000U
 #define TEMP_HYSTERESIS_RAW     32      /* 2C * 16 = 32 raw units */
 
 static const threshold_config_t PRESETS[3] = {
-  { 0, 1400, 1800, 10, 38 },
-  { 1, 1800, 2200, 15, 35 },
-  { 2, 2200, 2800, 18, 32 },
+  { 0, 20, 40, 10, 38 },
+  { 1, 30, 60, 15, 35 },
+  { 2, 50, 80, 18, 32 },
 };
 
 volatile control_state_t g_ctrl;
 
 static uint32_t g_ctrl_tick = 0U;
 static uint32_t g_alarm_tick = 0U;
-static uint32_t g_mute_tick = 0U;
 
 static void control_auto_logic(void);
 static void control_update_led(void);
@@ -69,6 +67,7 @@ void control_task(void)
   g_ctrl_tick = now;
 
   g_ctrl.soil_val = soil_read_avg(4);
+  g_ctrl.soil_pct = soil_adc_to_percent(g_ctrl.soil_val);
   if (ds18b20_is_valid())
   {
     g_ctrl.temp_raw = ds18b20_get_cached_raw();
@@ -88,13 +87,13 @@ void control_task(void)
 static void control_auto_logic(void)
 {
   sys_status_t old_st = g_ctrl.status;
-  uint16_t soil = g_ctrl.soil_val;
+  uint8_t  soil_pct = g_ctrl.soil_pct;
   int16_t  temp = g_ctrl.temp_raw;
   int16_t  temp_low_raw  = (int16_t)g_ctrl.thresh.temp_low * 16;
   int16_t  temp_high_raw = (int16_t)g_ctrl.thresh.temp_high * 16;
 
-  /* --- soil / pump: on only below soil_low (critical), off at soil_high --- */
-  if (soil < g_ctrl.thresh.soil_low)
+  /* --- soil / pump: on below soil_low%, off at soil_high% --- */
+  if (soil_pct < g_ctrl.thresh.soil_low)
   {
     if (!g_ctrl.pump_on)
     {
@@ -103,7 +102,7 @@ static void control_auto_logic(void)
       debug_uart_send_line("[CTRL] Pump ON (dry)");
     }
   }
-  else if (soil >= g_ctrl.thresh.soil_high)
+  else if (soil_pct >= g_ctrl.thresh.soil_high)
   {
     if (g_ctrl.pump_on)
     {
@@ -113,7 +112,7 @@ static void control_auto_logic(void)
     }
   }
 
-  /* --- temp / fan: on only above temp_high (critical), off with hysteresis --- */
+  /* --- temp / fan: on above temp_high, off with hysteresis --- */
   if (ds18b20_is_valid())
   {
     if (temp > temp_high_raw)
@@ -136,8 +135,8 @@ static void control_auto_logic(void)
     }
   }
 
-  /* --- status: DRY when below soil_high, HOT when above temp_low --- */
-  if (soil < g_ctrl.thresh.soil_high)
+  /* --- status: DRY when below soil_high%, HOT when above temp_low --- */
+  if (soil_pct < g_ctrl.thresh.soil_high)
   {
     g_ctrl.status = SYS_STATUS_DRY;
   }
@@ -156,8 +155,8 @@ static void control_auto_logic(void)
     control_log_status_change(old_st);
   }
 
-  /* --- alarm: only for critical (soil < soil_low OR temp > temp_high) --- */
-  g_ctrl.alarm_active = ((soil < g_ctrl.thresh.soil_low) ||
+  /* --- alarm: critical (soil < soil_low% OR temp > temp_high) --- */
+  g_ctrl.alarm_active = ((soil_pct < g_ctrl.thresh.soil_low) ||
                           (ds18b20_is_valid() && temp > temp_high_raw)) ? 1U : 0U;
 }
 
@@ -205,16 +204,6 @@ static void control_update_led(void)
 
 static void control_update_alarm(void)
 {
-  if (g_ctrl.alarm_muted)
-  {
-    uint32_t now = HAL_GetTick();
-    if ((now - g_mute_tick) >= ALARM_MUTE_TIMEOUT_MS)
-    {
-      g_ctrl.alarm_muted = 0U;
-      debug_uart_send_line("[CTRL] Alarm mute expired");
-    }
-  }
-
   if (!g_ctrl.alarm_active || g_ctrl.alarm_muted)
   {
     beep_off();
@@ -262,10 +251,10 @@ void control_key_handler(void)
                 *s = PRESETS[s->plant_type];
               }
               break;
-            case 1: if (s->soil_low  >= 600U)  s->soil_low  -= 100U; break;
-            case 2: if (s->soil_high >= 900U)  s->soil_high -= 100U; break;
-            case 3: if (s->temp_low  > 0U)     s->temp_low--;        break;
-            case 4: if (s->temp_high > 20U)    s->temp_high--;       break;
+            case 1: if (s->soil_low  >= 1U)  s->soil_low  -= 1U; break;
+            case 2: if (s->soil_high >= 1U)  s->soil_high -= 1U; break;
+            case 3: if (s->temp_low  > 0U)   s->temp_low--;      break;
+            case 4: if (s->temp_high > 20U)  s->temp_high--;     break;
           }
           break;
         }
@@ -282,10 +271,10 @@ void control_key_handler(void)
                 *s = PRESETS[s->plant_type];
               }
               break;
-            case 1: if (s->soil_low  <= 3400U) s->soil_low  += 100U; break;
-            case 2: if (s->soil_high <= 3700U) s->soil_high += 100U; break;
-            case 3: if (s->temp_low  < 30U)    s->temp_low++;        break;
-            case 4: if (s->temp_high < 50U)    s->temp_high++;       break;
+            case 1: if (s->soil_low  <= 99U) s->soil_low  += 1U; break;
+            case 2: if (s->soil_high <= 99U) s->soil_high += 1U; break;
+            case 3: if (s->temp_low  < 30U)  s->temp_low++;      break;
+            case 4: if (s->temp_high < 50U)  s->temp_high++;     break;
           }
           break;
         }
@@ -367,12 +356,15 @@ void control_key_handler(void)
           break;
 
         case KEY_EVENT_4_PRESSED:
-          if (g_ctrl.alarm_active)
+          g_ctrl.alarm_muted = !g_ctrl.alarm_muted;
+          if (g_ctrl.alarm_muted)
           {
-            g_ctrl.alarm_muted = 1U;
-            g_mute_tick = HAL_GetTick();
             beep_off();
             debug_uart_send_line("[CTRL] Alarm muted");
+          }
+          else
+          {
+            debug_uart_send_line("[CTRL] Alarm unmuted");
           }
           break;
 

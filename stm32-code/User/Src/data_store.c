@@ -12,8 +12,8 @@
 #define STORE_INTERVAL_MS   (5U * 60U * 1000U)
 
 #define THRESH_BASE_ADDR    0xF4U
-#define THRESH_MAGIC        0xD0U
-#define THRESH_SIZE         8U
+#define THRESH_MAGIC        0xD1U
+#define THRESH_SIZE         6U
 
 typedef struct
 {
@@ -168,8 +168,8 @@ void data_store_load_thresholds(threshold_config_t *cfg)
   if (buf[0] != THRESH_MAGIC)
   {
     cfg->plant_type = 1U;
-    cfg->soil_low   = 1800U;
-    cfg->soil_high  = 2200U;
+    cfg->soil_low   = 30U;
+    cfg->soil_high  = 60U;
     cfg->temp_low   = 15U;
     cfg->temp_high  = 35U;
     debug_uart_send_line("[STORE] Thresholds: defaults loaded");
@@ -177,24 +177,22 @@ void data_store_load_thresholds(threshold_config_t *cfg)
   }
 
   cfg->plant_type = buf[1];
-  cfg->soil_low   = (uint16_t)buf[2] | ((uint16_t)buf[3] << 8);
-  cfg->soil_high  = (uint16_t)buf[4] | ((uint16_t)buf[5] << 8);
-  cfg->temp_low   = buf[6];
-  cfg->temp_high  = buf[7];
+  cfg->soil_low   = buf[2];
+  cfg->soil_high  = buf[3];
+  cfg->temp_low   = buf[4];
+  cfg->temp_high  = buf[5];
   debug_uart_send_line("[STORE] Thresholds: restored from EEPROM");
 }
 
 void data_store_save_thresholds(const threshold_config_t *cfg)
 {
   uint8_t buf[THRESH_SIZE];
-  buf[0]  = THRESH_MAGIC;
-  buf[1]  = cfg->plant_type;
-  buf[2]  = (uint8_t)(cfg->soil_low & 0xFFU);
-  buf[3]  = (uint8_t)((cfg->soil_low >> 8) & 0xFFU);
-  buf[4]  = (uint8_t)(cfg->soil_high & 0xFFU);
-  buf[5]  = (uint8_t)((cfg->soil_high >> 8) & 0xFFU);
-  buf[6]  = cfg->temp_low;
-  buf[7]  = cfg->temp_high;
+  buf[0] = THRESH_MAGIC;
+  buf[1] = cfg->plant_type;
+  buf[2] = cfg->soil_low;
+  buf[3] = cfg->soil_high;
+  buf[4] = cfg->temp_low;
+  buf[5] = cfg->temp_high;
   at24c02_write_bytes(THRESH_BASE_ADDR, buf, THRESH_SIZE);
   debug_uart_send_line("[STORE] Thresholds: saved to EEPROM");
 }

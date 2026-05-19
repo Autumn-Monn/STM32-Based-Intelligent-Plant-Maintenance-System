@@ -250,11 +250,12 @@ static void oled_show_run_screen(void)
     oled_show_string(0, 40, "N/A");
   }
 
-  /* Row 1: 湿度: XXXX */
+  /* Row 1: 湿度: XX% */
   oled_show_hz(1, 0, HZ_SHI);
   oled_show_hz(1, 16, HZ_DU);
   oled_show_string(1, 32, ":");
-  oled_show_number(1, 40, (int32_t)g_ctrl.soil_val);
+  oled_show_number(1, 40, (int32_t)g_ctrl.soil_pct);
+  oled_show_string(1, 64, "%");
 
   /* Row 2: 自动/手动:P:OFF F:OFF */
   if (g_ctrl.mode == SYS_MODE_AUTO)
@@ -298,21 +299,28 @@ static void oled_show_run_screen(void)
   }
 
   /* WiFi/MQTT 状态指示（右上角） */
-  if (esp8266_mqtt_is_connected())
+  esp_conn_state_t esp_st = esp8266_get_state();
+  switch (esp_st)
   {
-    oled_show_string(0, 96, "M:OK");
-  }
-  else if (esp8266_get_state() == ESP_CONN_ERROR)
-  {
-    oled_show_string(0, 96, "W:Er");
-  }
-  else if (esp8266_get_state() == ESP_CONN_IDLE)
-  {
-    oled_show_string(0, 96, "W:--");
-  }
-  else
-  {
-    oled_show_string(0, 96, "W:..");
+    case ESP_CONN_IDLE:           oled_show_string(0, 96, "W:--"); break;
+    case ESP_CONN_HW_RESET:
+    case ESP_CONN_WAIT_READY:     oled_show_string(0, 96, "W:Rs"); break;
+    case ESP_CONN_AT_TEST:
+    case ESP_CONN_ATE0:
+    case ESP_CONN_CWMODE:         oled_show_string(0, 96, "W:AT"); break;
+    case ESP_CONN_CWJAP:          oled_show_string(0, 96, "W:Jn"); break;
+    case ESP_CONN_WIFI_OK:
+    case ESP_CONN_MQTT_USERCFG:   oled_show_string(0, 96, "M:Cf"); break;
+    case ESP_CONN_MQTT_CONN:
+    case ESP_CONN_MQTT_WAIT:      oled_show_string(0, 96, "M:Cn"); break;
+    case ESP_CONN_MQTT_SUB1:      oled_show_string(0, 96, "M:S1"); break;
+    case ESP_CONN_MQTT_SUB2:      oled_show_string(0, 96, "M:S2"); break;
+    case ESP_CONN_MQTT_OK:
+    case ESP_PUB_CMD:
+    case ESP_PUB_DATA:
+    case ESP_REPLY_CMD:
+    case ESP_REPLY_DATA:          oled_show_string(0, 96, "M:OK"); break;
+    case ESP_CONN_ERROR:          oled_show_string(0, 96, " Err"); break;
   }
 }
 
@@ -361,6 +369,7 @@ static void oled_show_settings_screen(void)
       oled_show_hz(1, 40, HZ_XIA);
       oled_show_string(1, 56, ":");
       oled_show_number(1, 64, (int32_t)s->soil_low);
+      oled_show_string(1, 88, "%");
       break;
 
     case 2:
@@ -369,6 +378,7 @@ static void oled_show_settings_screen(void)
       oled_show_hz(1, 40, HZ_SHANG);
       oled_show_string(1, 56, ":");
       oled_show_number(1, 64, (int32_t)s->soil_high);
+      oled_show_string(1, 88, "%");
       break;
 
     case 3:

@@ -34,6 +34,7 @@ typedef struct
   uint8_t      alarm_muted;
   int16_t      temp_raw;
   uint16_t     soil_val;
+  uint8_t      soil_pct;
   threshold_config_t thresh;
   uint8_t      setting_index;
   threshold_config_t setting_buf;

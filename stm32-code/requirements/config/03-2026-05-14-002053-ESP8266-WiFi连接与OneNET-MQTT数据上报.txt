@@ -7,7 +7,7 @@
   TTL一直显示乱码OneNET信息:                                                    
   产品ID: lGAVyi7tu9                                                            
   设备ID/名称: temperature                                                      
-  设备密钥: NFY2bW96bVVVZVRmV3pPTGx3dGVFeUpoeDJ5aFlMSVA=                        
+  设备密钥: NFY2bW96bVVVZVRmV3pPTGx3dGVFeUpoeDJ5aFlMSVA=                       
                                                                                 
   token生成信息:                                                                
   res格式: products/lGAVyi7tu9/devices/temperature                              
