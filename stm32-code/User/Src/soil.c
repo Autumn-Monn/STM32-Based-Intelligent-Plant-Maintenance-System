@@ -25,20 +25,32 @@ uint16_t soil_read_raw(void)
 
 uint16_t soil_read_avg(uint8_t samples)
 {
-  uint32_t sum = 0U;
-  uint8_t i;
+  if (samples == 0U) samples = 1U;
+  if (samples > 16U) samples = 16U;
 
-  if (samples == 0U)
-  {
-    samples = 1U;
-  }
+  uint16_t buf[16];
+  uint8_t i, j;
 
   for (i = 0U; i < samples; i++)
   {
-    sum += soil_read_raw();
+    buf[i] = soil_read_raw();
   }
 
-  return (uint16_t)(sum / samples);
+  /* 冒泡排序取中位数，过滤异常跳变 */
+  for (i = 0U; i < samples - 1U; i++)
+  {
+    for (j = 0U; j < samples - i - 1U; j++)
+    {
+      if (buf[j] > buf[j + 1U])
+      {
+        uint16_t tmp = buf[j];
+        buf[j] = buf[j + 1U];
+        buf[j + 1U] = tmp;
+      }
+    }
+  }
+
+  return buf[samples / 2U];  /* 返回中位数 */
 }
 
 uint8_t soil_adc_to_percent(uint16_t adc_val)

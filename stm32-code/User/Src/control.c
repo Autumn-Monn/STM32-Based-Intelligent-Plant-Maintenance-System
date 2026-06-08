@@ -8,7 +8,7 @@
 #include "debug_uart.h"
 #include "data_store.h"
 
-#define CONTROL_PERIOD_MS       500U
+#define CONTROL_PERIOD_MS       100U
 #define ALARM_TOGGLE_MS         300U
 #define TEMP_HYSTERESIS_RAW     32      /* 2C * 16 = 32 raw units */
 
@@ -66,7 +66,7 @@ void control_task(void)
   }
   g_ctrl_tick = now;
 
-  g_ctrl.soil_val = soil_read_avg(4);
+  g_ctrl.soil_val = soil_read_avg(16);
   g_ctrl.soil_pct = soil_adc_to_percent(g_ctrl.soil_val);
   if (ds18b20_is_valid())
   {
